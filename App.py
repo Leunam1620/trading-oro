@@ -1,21 +1,20 @@
 import streamlit as st
 import yfinance as yf
-import gradio as gr
+import time
 
-# Definimos tu función maestra
-def ejecutar_analisis_maestro():
+# Configuración de página
+st.set_page_config(page_title="Estación Maestra", layout="centered")
+
+def ejecutar_analisis():
     try:
         oro = yf.Ticker("GC=F")
         bono = yf.Ticker("^TNX")
         dxy = yf.Ticker("DX-Y.NYB")
-        
-        d = oro.history(period="1d")
-        s = oro.history(period="1wk")
+        d, s = oro.history(period="1d"), oro.history(period="1wk")
         
         def get_macro(tk):
-            info = tk.fast_info
-            cambio = ((info['last_price'] - info['previous_close']) / info['previous_close']) * 100
-            return f"{info['last_price']:.2f} ({cambio:+.2f}%)"
+            i = tk.fast_info
+            return f"{i['last_price']:.2f} ({((i['last_price'] - i['previous_close']) / i['previous_close']) * 100:+.2f}%)"
             
         p = round(float(d['Close'].iloc[-1]), 2)
         mx_d, mn_d = round(float(d['High'].max()), 2), round(float(d['Low'].min()), 2)
@@ -24,24 +23,41 @@ def ejecutar_analisis_maestro():
         f23_d, f61_d = mx_d - ((mx_d - mn_d) * 0.236), mx_d - ((mx_d - mn_d) * 0.618)
         f23_s, f61_s = mx_s - ((mx_s - mn_s) * 0.236), mx_s - ((mx_s - mn_s) * 0.618)
         
-        return p, get_macro(bono), get_macro(dxy), mx_d, mn_d, f23_d, f61_d, mx_s, mn_s, f23_s, f61_s
+        def get_estado(precio, f23, f61):
+            if precio >= f23: return "🔴 ZONA ALTA (VENDEDORA)"
+            if precio <= f61: return "🟢 ZONA BAJA (COMPRADORA)"
+            return "🟡 ZONA NEUTRA"
+
+        return p, get_macro(bono), get_macro(dxy), mx_d, mn_d, f23_d, f61_d, get_estado(p, f23_d, f61_d), \
+               mx_s, mn_s, f23_s, f61_s, get_estado(p, f23_s, f61_s)
     except: return None
 
-# Interfaz Streamlit (para que funcione en el móvil sin bloqueos)
-st.title("🚀 ESTACIÓN DE ANÁLISIS MAESTRA")
-if st.button("🚀 EJECUTAR ESCANEO REAL"):
-    res = ejecutar_analisis_maestro()
-    if res:
-        p, b, d, mx_d, mn_d, f23_d, f61_d, mx_s, mn_s, f23_s, f61_s = res
-        st.metric("Precio Oro", f"${p}")
-        col1, col2 = st.columns(2)
-        col1.metric("Bono US10Y", b)
-        col2.metric("Dólar DXY", d)
-        
-        st.subheader("📅 ANÁLISIS DIARIO")
-        st.write(f"Venta > {f23_d:.2f} | Compra < {f61_d:.2f}")
-        
-        st.subheader("🗓️ ANÁLISIS SEMANAL")
-        st.write(f"Venta > {f23_s:.2f} | Compra < {f61_s:.2f}")
-    else: st.error("Error en la conexión.")
-        
+st.title("🚀 ESTACIÓN MAESTRA (AUTO-ACTUALIZADA)")
+
+# Aquí ocurre la magia: actualiza la página cada 60 segundos
+res = ejecutar_analisis()
+if res:
+    p, b, d, mx_d, mn_d, f23_d, f61_d, est_d, mx_s, mn_s, f23_s, f61_s, est_s = res
+    
+    st.text_input("Precio Actual Oro", value=f"${p}")
+    st.text_input("Bono US10Y", value=b)
+    st.text_input("Dólar DXY", value=d)
+    
+    st.subheader("📅 ANÁLISIS DIARIO")
+    st.text_input("Semáforo Diario", value=est_d)
+    st.text_input("Venta Fib (23.6%)", value=f"${f23_d:.2f}")
+    st.text_input("Compra Fib (61.8%)", value=f"${f61_d:.2f}")
+    
+    st.subheader("🗓️ ANÁLISIS SEMANAL")
+    st.text_input("Semáforo Semanal", value=est_s)
+    
+    st.write("---")
+    st.write("⏳ La app se refresca automáticamente cada 60 segundos.")
+    
+    time.sleep(60)
+    st.rerun()
+else:
+    st.error("Esperando datos...")
+    time.sleep(10)
+    st.rerun()
+    
