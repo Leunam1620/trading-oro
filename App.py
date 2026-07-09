@@ -2,8 +2,16 @@ import streamlit as st
 import yfinance as yf
 import time
 
-# Configuración de página
-st.set_page_config(page_title="Estación Maestra", layout="centered")
+st.set_page_config(page_title="Estación Maestra PRO", layout="centered")
+
+def analizar_macro_texto(precio, techo, suelo, bono, dxy):
+    tendencia = "ALCISTA" if precio > (techo + suelo)/2 else "BAJISTA"
+    return f"""
+    **Resumen Macro:** El mercado muestra una tendencia {tendencia}. 
+    El bono US10Y en {bono} y el DXY en {dxy} sugieren un flujo de capital {'hacia refugio' if 'positive' in str(bono) else 'hacia riesgo'}.
+    **Análisis Técnico:** El precio actual (${precio}) se encuentra operando entre el soporte diario de ${suelo} y la resistencia de ${techo}.
+    Si el nivel de ${techo} es superado con volumen, se invalidaría la estructura correctiva diaria.
+    """
 
 def ejecutar_analisis():
     try:
@@ -12,52 +20,42 @@ def ejecutar_analisis():
         dxy = yf.Ticker("DX-Y.NYB")
         d, s = oro.history(period="1d"), oro.history(period="1wk")
         
-        def get_macro(tk):
-            i = tk.fast_info
-            return f"{i['last_price']:.2f} ({((i['last_price'] - i['previous_close']) / i['previous_close']) * 100:+.2f}%)"
-            
+        # Datos básicos
         p = round(float(d['Close'].iloc[-1]), 2)
         mx_d, mn_d = round(float(d['High'].max()), 2), round(float(d['Low'].min()), 2)
         mx_s, mn_s = round(float(s['High'].max()), 2), round(float(s['Low'].min()), 2)
         
-        f23_d, f61_d = mx_d - ((mx_d - mn_d) * 0.236), mx_d - ((mx_d - mn_d) * 0.618)
-        f23_s, f61_s = mx_s - ((mx_s - mn_s) * 0.236), mx_s - ((mx_s - mn_s) * 0.618)
+        # Macro
+        macro_b = f"{bono.fast_info['last_price']:.2f}"
+        macro_d = f"{dxy.fast_info['last_price']:.2f}"
         
-        def get_estado(precio, f23, f61):
-            if precio >= f23: return "🔴 ZONA ALTA (VENDEDORA)"
-            if precio <= f61: return "🟢 ZONA BAJA (COMPRADORA)"
-            return "🟡 ZONA NEUTRA"
-
-        return p, get_macro(bono), get_macro(dxy), mx_d, mn_d, f23_d, f61_d, get_estado(p, f23_d, f61_d), \
-               mx_s, mn_s, f23_s, f61_s, get_estado(p, f23_s, f61_s)
+        return p, macro_b, macro_d, mx_d, mn_d, mx_s, mn_s
     except: return None
 
-st.title("🚀 ESTACIÓN MAESTRA (AUTO-ACTUALIZADA)")
+st.title("🚀 ESTACIÓN MAESTRA PRO")
 
-# Aquí ocurre la magia: actualiza la página cada 60 segundos
 res = ejecutar_analisis()
 if res:
-    p, b, d, mx_d, mn_d, f23_d, f61_d, est_d, mx_s, mn_s, f23_s, f61_s, est_s = res
+    p, b, d, mx_d, mn_d, mx_s, mn_s = res
     
-    st.text_input("Precio Actual Oro", value=f"${p}")
-    st.text_input("Bono US10Y", value=b)
-    st.text_input("Dólar DXY", value=d)
+    st.text_input("Precio Oro", value=f"${p}")
     
     st.subheader("📅 ANÁLISIS DIARIO")
-    st.text_input("Semáforo Diario", value=est_d)
-    st.text_input("Venta Fib (23.6%)", value=f"${f23_d:.2f}")
-    st.text_input("Compra Fib (61.8%)", value=f"${f61_d:.2f}")
+    st.text_input("Resistencia Diaria (Techo)", value=f"${mx_d}")
+    st.text_input("Soporte Diario (Suelo)", value=f"${mn_d}")
+    st.write(analizar_macro_texto(p, mx_d, mn_d, b, d))
     
     st.subheader("🗓️ ANÁLISIS SEMANAL")
-    st.text_input("Semáforo Semanal", value=est_s)
+    st.text_input("Resistencia Semanal", value=f"${mx_s}")
+    st.text_input("Soporte Semanal", value=f"${mn_s}")
+    st.write(f"**Resumen Semanal:** La estructura semanal mantiene un rango operativo entre ${mn_s} y ${mx_s}. La ruptura de estos niveles confirmará la tendencia de fondo para los próximos días.")
     
     st.write("---")
-    st.write("⏳ La app se refresca automáticamente cada 60 segundos.")
-    
+    st.write("⏳ Auto-actualización en 60s...")
     time.sleep(60)
     st.rerun()
 else:
-    st.error("Esperando datos...")
-    time.sleep(10)
+    st.write("Cargando datos...")
+    time.sleep(5)
     st.rerun()
     
