@@ -4,21 +4,15 @@ import time
 
 st.set_page_config(page_title="Estación Maestra PRO", layout="centered")
 
+def get_estado(precio, f23, f61):
+    if precio >= f23: return "🔴 ZONA ALTA (VENDEDORA)"
+    if precio <= f61: return "🟢 ZONA BAJA (COMPRADORA)"
+    return "🟡 ZONA NEUTRA"
+
 def obtener_macro(tk):
     i = tk.fast_info
     cambio = ((i['last_price'] - i['previous_close']) / i['previous_close']) * 100
     return f"{i['last_price']:.2f} ({cambio:+.2f}%)"
-
-def generar_analisis_fundamental(precio, mx, mn, bono_val, dxy_val):
-    # Lógica de análisis fundamental simplificada basada en correlaciones
-    tendencia_dxy = "Fuerte" if float(dxy_val.split('(')[0]) > 102 else "Débil"
-    sentimiento = "Aversión al riesgo" if float(bono_val.split('(')[0]) > 4.5 else "Búsqueda de riesgo"
-    
-    return f"""
-    **Análisis Fundamental:** - El dólar (DXY) se encuentra en una posición {tendencia_dxy}, lo que ejerce presión directa sobre el Oro. 
-    - El mercado muestra un sentimiento de {sentimiento} (Bono 10Y: {bono_val}).
-    - La correlación actual indica que si el bono sigue subiendo, el Oro podría testear el soporte de ${mn}.
-    """
 
 def ejecutar_analisis():
     try:
@@ -50,14 +44,14 @@ if res:
     st.text_input("Soporte", value=f"${mn_d}")
     st.text_input("Venta Fib (23.6%)", value=f"${f23_d:.2f}")
     st.text_input("Compra Fib (61.8%)", value=f"${f61_d:.2f}")
-    st.write(generar_analisis_fundamental(p, mx_d, mn_d, b, d))
+    st.text_input("SEMÁFORO DIARIO", value=get_estado(p, f23_d, f61_d))
     
     st.subheader("🗓️ ANÁLISIS SEMANAL")
     st.text_input("Resistencia Semanal", value=f"${mx_s}")
-    st.text_input("Soporte Semanal", value=f"${mn_s}")
+    st.text_input("Soporte Semanal", value=f"${mn_s:.2f}") # CORREGIDO AQUÍ
     st.text_input("Venta Fib (23.6%)", value=f"${f23_s:.2f}")
     st.text_input("Compra Fib (61.8%)", value=f"${f61_s:.2f}")
-    st.write("**Análisis Semanal:** La tendencia macro semanal está condicionada por la inflación implícita en los bonos. Mientras el soporte semanal en ${mn_s} no sea vulnerado, la estructura de compras se mantiene vigente.")
+    st.write(f"**Análisis Semanal:** La estructura semanal mantiene un rango operativo entre ${mn_s:.2f} y ${mx_s:.2f}. La ruptura de estos niveles confirmará la tendencia de fondo.")
     
     time.sleep(60)
     st.rerun()
